@@ -146,3 +146,38 @@ fn byog_identity_preserves_transport_column_names() {
         assert_eq!(columns(true), columns(false), "{query}");
     }
 }
+
+#[tokio::test]
+async fn identity_equality_with_out_of_range_integers_is_false() {
+    for byog in [false, true] {
+        for (pattern, binding) in [("(n:Item)", "n"), ("()-[r:LINK]->()", "r")] {
+            for (value, integer) in [("-1", -1), ("$value", i128::from(u64::MAX) + 1)] {
+                let query = format!(
+                    "MATCH {pattern} RETURN {binding} = {value}, {value} = {binding}, \
+                     NOT ({binding} = {value}), {binding} <> {value} LIMIT 1"
+                );
+                let (template, _) = LoweredTemplate::lower_timed_with_id_properties(&query, byog).unwrap();
+                let parameters = ParameterMap::from([("value".to_string(), ScalarValue::Integer(integer))]);
+                let prepared = template
+                    .bind(&parameters, &ListParameterMap::new())
+                    .plan_with_statistics(&UnknownStatistics)
+                    .unwrap();
+                let result = CypherEngine::new(graph()).execute_prepared(&prepared).await.unwrap();
+                assert_eq!(table(&result), rows![["false", "false", "true", "true"]], "{query}");
+            }
+        }
+    }
+}
+
+#[tokio::test]
+async fn identity_equality_preserves_valid_ids_and_nulls() {
+    for byog in [false, true] {
+        for (pattern, binding) in [("(n:Item)", "n"), ("()-[r:LINK]->()", "r")] {
+            let query = format!(
+                "MATCH {pattern} RETURN {binding} = id({binding}), id({binding}) = {binding}, \
+                 {binding} = null, null = {binding}, NOT ({binding} = null) LIMIT 1"
+            );
+            assert_eq!(run(&query, byog).await, rows![["true", "true", "null", "null", "null"]], "{query}");
+        }
+    }
+}

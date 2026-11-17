@@ -6224,17 +6224,17 @@ fn evaluate_equal(left: EvaluatedValue, right: EvaluatedValue) -> Option<bool> {
         V::Null | V::Truth(None) => None,
         V::Vertex(left) => match right {
             V::Vertex(right) => Some(left == right),
-            V::Scalar(ScalarValue::Integer(right)) => u64::try_from(right).ok().map(|right| left == right),
+            V::Scalar(ScalarValue::Integer(right)) => Some(i128::from(left) == right),
             _ => Some(false),
         },
         V::Relationship(left) => match right {
             V::Relationship(right) => Some(left == right),
-            V::Scalar(ScalarValue::Integer(right)) => u64::try_from(right).ok().map(|right| left == right),
+            V::Scalar(ScalarValue::Integer(right)) => Some(i128::from(left) == right),
             _ => Some(false),
         },
         V::Scalar(left) => match (left, right) {
             (left, V::Scalar(right)) => Some(scalar_values_equal(&left, &right)),
-            (ScalarValue::Integer(left), V::Vertex(right) | V::Relationship(right)) => u64::try_from(left).ok().map(|left| left == right),
+            (ScalarValue::Integer(left), V::Vertex(right) | V::Relationship(right)) => Some(left == i128::from(right)),
             (ScalarValue::Boolean(left), V::Truth(Some(right))) => Some(left == right),
             _ => Some(false),
         },
